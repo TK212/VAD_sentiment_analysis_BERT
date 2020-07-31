@@ -101,6 +101,7 @@ df_joy['A'] = df_VAD.iat[2,2]
 df_joy['D'] = df_VAD.iat[2,3]
 
 df_sadness['V'] = df_VAD.iat[3,1]
+df_sadness['A'] = df_VAD.iat[3,2]
 df_sadness['D'] = df_VAD.iat[3,3]
 
 df_WASSA = pd.concat([df_ang, df_fear, df_joy, df_sadness], ignore_index = True)
@@ -172,6 +173,7 @@ df_SSEC = df_SSEC[["text","V","A","D"]]
 
 
 
+
 df_SemEval2018_EC = df_SemEval2018_EC.rename(columns={'Tweet': 'text'})
 
 
@@ -205,8 +207,8 @@ df_SemEval2018_EC = df_SemEval2018_EC[["text","V","A","D"]]
 
 
 
-
-df_train = pd.concat([df_emobank, df_SSEC, df_SemEval2018_EC], ignore_index = True)
+df_train = df_SemEval2018_EC
+#df_train = pd.concat([df_emobank, df_SSEC, df_SemEval2018_EC], ignore_index = True)
 df_test = df_WASSA
 
 
@@ -238,12 +240,21 @@ df_test['text'] = df_test['text'].str.replace(mention_re, '')
 df_test['text'] = df_test['text'].str.replace(url_re, '')
 
 
+#Fill nan value (nan value in VAD means neutral feeling then allocated 500)
+df_train = df_train.fillna({'V':500, 'A': 500, 'D': 500})
+df_train = df_train.dropna(subset=['text'])
 
+df_test = df_test.fillna({'V':500, 'A': 500, 'D': 500})
+df_test = df_test.dropna(subset=['text'])
 
-
-
-
-
+"""
+#nanチェック
+print(df_test.isnull().any())
+print(df_emobank.isnull().any())
+df = df_SemEval2018_EC.isnull().any(axis=1)
+df = df_SSEC["text"]
+df = df.isnull()
+"""
 
 
 
@@ -380,25 +391,24 @@ from torch.utils.data import TensorDataset, random_split
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 
 input_ids, attention_masks = BERT_tokenization(df_train)
-labels = torch.tensor(df_train["V"]).long()
+labels = torch.tensor(df_train["D"]).long()
 train_dataset = TensorDataset(input_ids, attention_masks, labels)
 
 input_ids, attention_masks = BERT_tokenization(df_test)
-labels = torch.tensor(df_test["V"]).long()
+labels = torch.tensor(df_test["D"]).long()
 test_dataset = TensorDataset(input_ids, attention_masks, labels)
 
 ############################################    TRAIN & TEST    #########################################################################
 
 
 
-"""
 # get the point of 90% ID 90%地点のIDを取得
-train_size = int(0.9* len(dataset))
-val_size = len(dataset) - train_size
+train_size = int(0.9* len(train_dataset))
+val_size = len(train_dataset) - train_size
 
 # divede data set
-train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
-"""
+train_dataset, val_dataset = random_split(train_dataset, [train_size, val_size])
+
 
 
 print('Train data：{}'.format(train_size))
@@ -422,6 +432,13 @@ validation_dataloader = DataLoader(
             batch_size = batch_size
         )
 
+# validation data loader
+test_dataloader = DataLoader(
+            test_dataset, 
+            sampler = SequentialSampler(test_dataset), # sequential sampling and batch
+            batch_size = batch_size
+        )
+
 
 
 ############################################    MODELING   #########################################################################
@@ -441,7 +458,7 @@ from transformers import BertForSequenceClassification, AdamW, BertConfig
 # linear classification layer on top. 
 model = BertForSequenceClassification.from_pretrained(
     "bert-base-uncased", # Use the 12-layer BERT model, with an uncased vocab.
-    num_labels = 1000, # The number of output labels--2 for binary classification.
+    num_labels = 1001, # The number of output labels--2 for binary classification.
                     # You can increase this for multi-class tasks.   
     output_attentions = False, # Whether the model returns attentions weights.
     output_hidden_states = False, # Whether the model returns all hidden-states.
@@ -803,7 +820,7 @@ model.eval()
 predictions , true_labels , predicted_label = [], [], []
 
 # Predict 
-for batch in validation_dataloader:
+for batch in test_dataloader:
   # Add batch to GPU
   batch = tuple(t.to(device) for t in batch)
   
@@ -848,15 +865,17 @@ accuracy = np.sum(np.array(predicted_label) == np.array(true_labels))/ len(true_
 print('Accuracy : ', accuracy)
 
 
-
-
+predicted_df.to_csv('DissertationData\D_score_bySemEval2018.txt')
+#true_df.to_csv('DissertationData\True_score.txt')
 
 
 
 ############################################    CLASSIFICATION & EVALUATE   #########################################################################
 
 
+
 import math
+
 
 df_VAD = pd.DataFrame([
     ['anger', 167, 865, 657], 
@@ -864,29 +883,59 @@ df_VAD = pd.DataFrame([
     ['joy', 980, 824, 794],
     ['sadness', 52, 288, 164],
     ])
-
     
+    
+    
+   
+
+df_V = pd.read_table('DissertationData\V_score_bySemEval2018.txt', delimiter=',', header=None)
+df_A = pd.read_table('DissertationData\A_score_bySemEval2018.txt', delimiter=',', header=None)
+df_D = pd.read_table('DissertationData\D_score_bySemEval2018.txt', delimiter=',', header=None)
+
+predicted_df = pd.concat([df_V, df_A, df_D], axis=1)
+predicted_df.columns = ["ind1","V","ind2","A","ind3","D"]
+#predicted_df = predicted_df["V","A","D"]
+
+#predicted_df = predicted_df[1:10]
+
 
 predicted_labels = []
-for line in predicted_df:
-    for emotion in df_VAD:
+for index1, line in predicted_df.iterrows():
+    for index2, emotion in df_VAD.iterrows():
         min_distance = 1000
-        distance = math.sqrt((emotion[1] - predicted_df['V']) ** 2 + (emotion[2] - predicted_df['A']) ** 2 + (emotion[3] - predicted_df['D']) ** 2)
+        distance = math.sqrt((emotion[1] - line['V']) ** 2 + (emotion[2] - line['A']) ** 2 + (emotion[3] - line['D']) ** 2)
         if distance < min_distance:
             min_distance = distance
             predicted_label = emotion[0]
     predicted_labels.append(predicted_label)
             
-        
-    
+
+df_ang = pd.read_table('DissertationData\WASSA2017anger.txt', delimiter='\t', header=None)
+df_fear = pd.read_table('DissertationData\WASSA2017fear.txt', delimiter='\t', header=None)
+df_joy = pd.read_table('DissertationData\WASSA2017joy.txt', delimiter='\t', header=None)
+df_sadness = pd.read_table('DissertationData\WASSA2017sadness.txt', delimiter='\t', header=None)
+
+
+df_WASSA = pd.concat([df_ang, df_fear, df_joy, df_sadness], ignore_index = True)
+df_WASSA.columns = ["id","text","label","intensity"]
+true_labels = df_WASSA[["label"]]
+
+accuracy = 0
+for index1, true_label in true_labels.iterrows():
+    if(true_label[0] == predicted_labels[index1]):
+        accuracy += 1
+accuracy = accuracy / len(true_labels)
+print('Accuracy : ', accuracy)
 
 
 
+"""        
 
+accuracy = np.sum(np.array(predicted_labels) == np.array(true_labels))/ len(true_labels)
+print(np.sum(np.array(predicted_labels) == np.array(true_labels)))
+print('Accuracy : ', accuracy)
 
-
-
-
+"""
 
 
 
