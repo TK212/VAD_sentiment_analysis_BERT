@@ -110,7 +110,7 @@ df_VAD = pd.DataFrame([
 
 
 
-# 3D散布図でプロットするデータを生成する為にnumpyを使用
+# Use numpy to generate data to plot on 3D scatterplots
 """
 X_mark = [0.167, 0.073, 0.98, 0.052]
 Y_mark = [0.865, 0.84, 0.824, 0.288]
@@ -134,11 +134,11 @@ X = predicted_df['V']
 Y = predicted_df['A']
 Z = predicted_df['D']
 
-# グラフの枠を作成
+# Create a frame for the graph
 fig = plt.figure()
 ax = Axes3D(fig)
 
-# X,Y,Z軸にラベルを設定
+# Labeling on X, Y and Z axes.
 ax.set_xlabel("V")
 ax.set_ylabel("A")
 ax.set_zlabel("D")
@@ -149,19 +149,18 @@ ax.set_zlim(0, 1000)
 
 #fig, ax = plt.subplots()
 
-# .plotで描画
+
 ax.scatter(X,Y,Z,marker="o",linestyle='None')
 ax.scatter(X_mark, Y_mark, Z_mark, s=50, marker="*", color='r')
 
 
-# 最後に.show()を書いてグラフ表示
 plt.show()
 """
 
 
 
 """
-#最短距離を計算するため
+#To calculate the shortest distance.
 #predicted_df = predicted_df["V","A","D"]
 
 #predicted_df = predicted_df[1:10]
@@ -178,7 +177,7 @@ for index1, line in predicted_df.iterrows():
 
 
 
-#それぞれの予測感情ごとのaccuracyを調べる
+#Examine the accuracy of each predictive emotion.
 df_WASSA = pd.concat([df_ang, df_fear, df_joy, df_sadness], ignore_index = True)
 df_WASSA.columns = ["id","text","label","intensity"]
 true_labels = df_WASSA[["label"]]
@@ -226,7 +225,7 @@ print("Sadness: Num, ", sadness_num, "Correct_Num, ", sadness_accuracy, "Accurac
 
 
 """
-#3カテゴリに緩めたバージョンの正答率
+#Percentage of correct answers in the version loosened to three categories
 
 df_WASSA = pd.concat([df_ang, df_fear, df_joy, df_sadness], ignore_index = True)
 df_WASSA.columns = ["id","text","label","intensity"]
