@@ -9,6 +9,7 @@ import os
 import re
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
@@ -30,24 +31,12 @@ df_SSECtest = pd.read_table('DissertationData\SSECtest.txt', delimiter='\t', hea
 df_SSECtrain = pd.read_table('DissertationData\SSECtrain.txt', delimiter='\t', header=None)
 df_SemEval2018_EC = pd.read_table('DissertationData\SemEval2018_EC_test.txt', delimiter='\t')
 
-"""
-#EMOBANKとSemEval2007の一致率を調べるため
-pattern = r"<[^>]*?>"
-df_SemEval2007test = df_SemEval2007test['text'].str.replace(pattern, '')
-df_SemEval2007train = df_SemEval2007train['text'].str.replace(pattern, '')
+df_polarityA = pd.read_table('DissertationData\polarity\SemEval2017-task4-test.subtask-A.english.txt', delimiter='\t', header=None)
 
 
-#EMOBANKとSemEval2007の一致率を調べるため
 
 
-a = 0
-for texta in df_SemEval2007test:
-    for textb in df_emobank['text']:
-        if(texta == textb):
-            a = a+1
 
-
-"""
 
 
 
@@ -207,9 +196,29 @@ df_SemEval2018_EC = df_SemEval2018_EC[["text","V","A","D"]]
 
 
 
+
+
+
+df_polarityA.columns = ["V","Polarity","text"]
+df_polarityA['V'] = 0
+df_polarityA['A'] = 0
+df_polarityA['D'] = 0
+df_polarityA = df_polarityA[["text","V","A","D"]]
+
+
+
+##############################################     DEFINE TRAIN AND TEST DATASETS             #############################################################
+#df_train = df_emobank
+#df_train = df_SSEC
 df_train = df_SemEval2018_EC
+#df_train = pd.concat([df_emobank, df_SemEval2018_EC], ignore_index = True)
 #df_train = pd.concat([df_emobank, df_SSEC, df_SemEval2018_EC], ignore_index = True)
-df_test = df_WASSA
+
+
+#For VAD Analysis
+#df_test = df_WASSA
+#For Polarity Analysis
+df_test = df_polarityA
 
 
 
@@ -217,7 +226,71 @@ df_test = df_WASSA
 
 
 
+#############################################     VALUE COUNTS     ###########################################################################
+import math
 
+df_VAD = pd.DataFrame([
+    ['anger', 167, 865, 657], 
+    ['fear', 73, 840, 293],
+    ['joy', 980, 824, 794],
+    ['sadness', 52, 288, 164],
+    ])
+
+min_distances =[]
+predicted_labels = []
+for index1, line in df_train.iterrows():
+    distance_list = []
+    for index2, emotion in df_VAD.iterrows():
+        distance = math.sqrt((emotion[1] - line['V']) ** 2 + (emotion[2] - line['A']) ** 2 + (emotion[3] - line['D']) ** 2)
+        distance_list.append(distance)
+    predicted_labels.append(df_VAD[0][np.argmin(distance_list)])
+
+predicted_labels = pd.Series(predicted_labels)
+print(predicted_labels.value_counts())
+
+
+
+
+#一致率調査
+"""
+#EMOBANKとSemEval2007の一致率を調べるため
+pattern = r"<[^>]*?>"
+df_SemEval2007test = df_SemEval2007test['text'].str.replace(pattern, '')
+df_SemEval2007train = df_SemEval2007train['text'].str.replace(pattern, '')
+
+"""
+#EMOBANKとSemEval2007の一致率を調べるため
+
+
+a = 0
+for texta in df_SemEval2018_EC['text']:
+    for textb in df_WASSA['text']:
+        if(texta == textb):
+            a = a+1
+print(a)
+
+
+
+
+#それぞれのデータ自体のV値を線形で示す。
+fig = plt.figure()
+ax = fig.add_subplot(1,1,1)
+
+ax.hist(df_train['V'],range=[0,1000])
+ax.set_xlabel('V Score')
+ax.set_ylabel('Number of Data')
+fig.show()
+
+"""
+
+plt.figure()
+plt.hist(df_train['V'],range=[0,1000])
+plt.set_xlabel('V Score')
+plt.set_ylabel('Number of Data')
+
+plt.show()
+
+"""
 
 
 
@@ -391,11 +464,11 @@ from torch.utils.data import TensorDataset, random_split
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 
 input_ids, attention_masks = BERT_tokenization(df_train)
-labels = torch.tensor(df_train["D"]).long()
+labels = torch.tensor(df_train["V"]).long()
 train_dataset = TensorDataset(input_ids, attention_masks, labels)
 
 input_ids, attention_masks = BERT_tokenization(df_test)
-labels = torch.tensor(df_test["D"]).long()
+labels = torch.tensor(df_test["V"]).long()
 test_dataset = TensorDataset(input_ids, attention_masks, labels)
 
 ############################################    TRAIN & TEST    #########################################################################
@@ -438,6 +511,7 @@ test_dataloader = DataLoader(
             sampler = SequentialSampler(test_dataset), # sequential sampling and batch
             batch_size = batch_size
         )
+
 
 
 
@@ -843,10 +917,12 @@ for batch in test_dataloader:
   for logit in logits:
       predictions.append(logit)
       predicted_label.append(np.argmax(logit))
-      
+
+     
   for label_id in label_ids:
       true_labels.append(label_id)
-  
+
+
   """
   # Store predictions and true labels
   predictions.append(logits)
@@ -865,7 +941,7 @@ accuracy = np.sum(np.array(predicted_label) == np.array(true_labels))/ len(true_
 print('Accuracy : ', accuracy)
 
 
-predicted_df.to_csv('DissertationData\D_score_bySemEval2018.txt')
+predicted_df.to_csv('DissertationData\V_score_Polarity_TwoDatasets.txt')
 #true_df.to_csv('DissertationData\True_score.txt')
 
 
@@ -873,7 +949,7 @@ predicted_df.to_csv('DissertationData\D_score_bySemEval2018.txt')
 ############################################    CLASSIFICATION & EVALUATE   #########################################################################
 
 
-
+"""
 import math
 
 
@@ -926,7 +1002,7 @@ for index1, true_label in true_labels.iterrows():
         accuracy += 1
 accuracy = accuracy / len(true_labels)
 print('Accuracy : ', accuracy)
-
+"""
 
 
 """        
