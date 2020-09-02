@@ -251,15 +251,15 @@ print(predicted_labels.value_counts())
 
 
 
-#一致率調査
+#match survey
 """
-#EMOBANKとSemEval2007の一致率を調べるため
+#In order to examine the agreement between EMOBANK and SemEval 2007
 pattern = r"<[^>]*?>"
 df_SemEval2007test = df_SemEval2007test['text'].str.replace(pattern, '')
 df_SemEval2007train = df_SemEval2007train['text'].str.replace(pattern, '')
 
 """
-#EMOBANKとSemEval2007の一致率を調べるため
+
 
 
 a = 0
@@ -272,7 +272,7 @@ print(a)
 
 
 
-#それぞれのデータ自体のV値を線形で示す。
+
 fig = plt.figure()
 ax = fig.add_subplot(1,1,1)
 
@@ -321,7 +321,7 @@ df_test = df_test.fillna({'V':500, 'A': 500, 'D': 500})
 df_test = df_test.dropna(subset=['text'])
 
 """
-#nanチェック
+#nan check
 print(df_test.isnull().any())
 print(df_emobank.isnull().any())
 df = df_SemEval2018_EC.isnull().any(axis=1)
@@ -453,7 +453,7 @@ def BERT_tokenization(df):
     
     
     # Convert the lists into tensors.
-    #add ".to(dev)" when do not use data leader データローダを使わないときは.to(dev)を各行の末尾に付ける
+    #add ".to(dev)" when do not use data leader 
     input_ids = torch.cat(input_ids, dim=0)
     attention_masks = torch.cat(attention_masks, dim=0)
     return input_ids, attention_masks
@@ -475,7 +475,7 @@ test_dataset = TensorDataset(input_ids, attention_masks, labels)
 
 
 
-# get the point of 90% ID 90%地点のIDを取得
+# get the point of 90% ID 
 train_size = int(0.9* len(train_dataset))
 val_size = len(train_dataset) - train_size
 
@@ -936,7 +936,7 @@ predicted_df = pd.DataFrame(predicted_label)
 true_df = pd.DataFrame(true_labels)
 result_df = pd.concat([predicted_df, true_df], axis=1)
 
-#一致率を計算するとき、一度ndarrayに変換してイコールで結ぶと要素ごとの一致を計算してくれる。
+
 accuracy = np.sum(np.array(predicted_label) == np.array(true_labels))/ len(true_labels)
 print('Accuracy : ', accuracy)
 
@@ -1035,245 +1035,3 @@ print('Accuracy : ', accuracy)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-"""
-# Create sentence and label lists
-sentences = df.sentence.values
-labels = df.label.values
-
-# Tokenize all of the sentences and map the tokens to thier word IDs.
-input_ids = []
-attention_masks = []
-
-# For every sentence...
-for sent in sentences:
-    # `encode_plus` will:
-    #   (1) Tokenize the sentence.
-    #   (2) Prepend the `[CLS]` token to the start.
-    #   (3) Append the `[SEP]` token to the end.
-    #   (4) Map tokens to their IDs.
-    #   (5) Pad or truncate the sentence to `max_length`
-    #   (6) Create attention masks for [PAD] tokens.
-    encoded_dict = tokenizer.encode_plus(
-                        sent,                      # Sentence to encode.
-                        add_special_tokens = True, # Add '[CLS]' and '[SEP]'
-                        max_length = 64,           # Pad & truncate all sentences.
-                        pad_to_max_length = True,
-                        return_attention_mask = True,   # Construct attn. masks.
-                        return_tensors = 'pt',     # Return pytorch tensors.
-                   )
-    
-    # Add the encoded sentence to the list.    
-    input_ids.append(encoded_dict['input_ids'])
-    
-    # And its attention mask (simply differentiates padding from non-padding).
-    attention_masks.append(encoded_dict['attention_mask'])
-
-# Convert the lists into tensors.
-input_ids = torch.cat(input_ids, dim=0)
-attention_masks = torch.cat(attention_masks, dim=0)
-labels = torch.tensor(labels)
-
-# Set the batch size.  
-batch_size = 32  
-
-# Create the DataLoader.
-prediction_data = TensorDataset(input_ids, attention_masks, labels)
-prediction_sampler = SequentialSampler(prediction_data)
-prediction_dataloader = DataLoader(prediction_data, sampler=prediction_sampler, batch_size=batch_size)
-
-
-
-"""
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-"""
-model.cuda()
-def train(model):
-    
-    model.train() # train mode
-    for batch in train_dataloader:# train_dataloader outputs "word_id", "mask, label"
-        b_input_ids = batch[0].to(device)
-        b_input_mask = batch[1].to(device)
-        #b_labels = batch[2].to(dev)
-        last_hidden_states = model(b_input_ids,  
-                             attention_mask=b_input_mask)
-        
-    return last_hidden_states
-
-last = train(model)
-features = last[0][:,0,:].cpu().detach().numpy()
-
-
-# Get all of the model's parameters as a list of tuples.
-params = list(model.named_parameters())
-
-print('The BERT model has {:} different named parameters.\n'.format(len(params)))
-
-print('==== Embedding Layer ====\n')
-
-for p in params[0:5]:
-    print("{:<55} {:>12}".format(p[0], str(tuple(p[1].size()))))
-
-print('\n==== First Transformer ====\n')
-
-for p in params[5:21]:
-    print("{:<55} {:>12}".format(p[0], str(tuple(p[1].size()))))
-
-print('\n==== Output Layer ====\n')
-
-for p in params[-4:]:
-    print("{:<55} {:>12}".format(p[0], str(tuple(p[1].size()))))
-    
-"""
-
-
-
-"""
-with torch.no_grad():
-    model.cuda()
-    last_hidden_states = model(input_ids=input_ids, attention_mask=attention_masks)
-"""
-    
-"""   
-features = last_hidden_states[0][:,0,:].numpy()
-
-labels = df_WASSA_V["V"]
-"""
-
-#torch.cuda.empty_cache()
-
-#train = df_WASSA.iloc[0:round(len(df_WASSA)*0.8),:]
-#test = df_WASSA.iloc[round(len(df_WASSA)*0.8):,:]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-"""
-from tensorflow.python.client import device_lib
-print(device_lib.list_local_devices())
-
-
-import tensorflow as tf
-mnist = tf.keras.datasets.mnist
- 
-(x_train, y_train),(x_test, y_test) = mnist.load_data()
-x_train, x_test = x_train / 255.0, x_test / 255.0
- 
-model = tf.keras.models.Sequential([
-  tf.keras.layers.Flatten(input_shape=(28, 28)),
-  tf.keras.layers.Dense(512, activation=tf.nn.relu),
-  tf.keras.layers.Dropout(0.2),
-  tf.keras.layers.Dense(10, activation=tf.nn.softmax)
-])
-model.compile(optimizer='adam',
-              loss='sparse_categorical_crossentropy',
-              metrics=['accuracy'])
- 
-model.fit(x_train, y_train, epochs=5)
-model.evaluate(x_test, y_test)
-
-"""
